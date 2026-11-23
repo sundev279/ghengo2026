@@ -183,17 +183,17 @@ for (let r=1;r<=5;r++){
   }
 }
 
-// ===== Lưu trữ kết quả: kho JSON dùng chung + bản đệm trên trình duyệt =====
-const STORE_URL = "https://api.restful-api.dev/objects/ff808181a09d98f701a207128c1621ea";
-const STORE_NAME = "ghengo-ct-2026-11-23";
+// ===== Lưu trữ kết quả: Google Sheet (qua Apps Script) + bản đệm trên trình duyệt =====
+const STORE_URL = "https://script.google.com/macros/s/AKfycbzLq9k2bimC1GdFuZ-xQeo8JBFCbZkO55dSyPmi2YKDliqaYrmexi3wkrNxkhOhnMBFng/exec";
 const KEY = "ghengo-ct-2026-11-23";
-const EDITOR_KEY = "ghengo-editor";
-const PIN_HASH = "ed0478973a6c233d4cba8a20af7c6a156599c88e5f6dfdd8ea10cdbf2c8c4cfd";
+const PIN_KEY = "ghengo-pin";
+const MIGRATED_KEY = KEY + "-gs-migrated";
 let results = {};
 try { results = JSON.parse(localStorage.getItem(KEY)||"{}") || {}; } catch(e){ results = {}; }
-const pendingLocal = {...results}; // kết quả cũ chỉ có trên máy này (trước khi có đồng bộ)
-let canEdit = false;
-try { canEdit = localStorage.getItem(EDITOR_KEY)==="1"; } catch(e){}
+const pendingLocal = {...results}; // kết quả đã bấm trên máy này trước khi chuyển sang Google Sheet
+let pin = "";
+try { pin = localStorage.getItem(PIN_KEY) || ""; } catch(e){}
+let canEdit = !!pin;
 let sync = { state:"loading", at:null };
 let pushTimer = null, pushing = false, dirty = false;
 
@@ -219,47 +219,59 @@ function cleanResults(obj){
   return clean;
 }
 
+function labelsFor(res){
+  const out={};
+  for(const k of Object.keys(res)){ const m=MATCHES.find(x=>x.no===+k), t=TEAMS[res[k]];
+    if(m&&t) out[k]={g:m.group, n:`${t.name} ${t.code} ${pad(t.id)}`}; }
+  return out;
+}
+
+async function post(body){
+  const r = await fetch(STORE_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
 async function pull(){
   if(pushing || dirty) return;
   try{
     const r = await fetch(STORE_URL,{cache:"no-store"});
     if(!r.ok) throw new Error(r.status);
     const j = await r.json();
-    const remote = cleanResults(j && j.data && j.data.results);
+    const remote = cleanResults(j && j.results);
     if(pushing || dirty) return;
-    // Lần đầu bật chỉnh sửa trên máy có kết quả cũ: gộp kết quả cũ lên kho chung
+    // Máy có kết quả đã bấm trước đây: gộp lên Google Sheet một lần khi ở chế độ chỉnh sửa
     let migrated=false;
-    try{ migrated = localStorage.getItem(KEY+"-migrated")==="1"; }catch(e){}
-    if(canEdit && !migrated && Object.keys(pendingLocal).length){
-      results = {...remote, ...cleanResults(pendingLocal)};
-      try{ localStorage.setItem(KEY+"-migrated","1"); }catch(e){}
+    try{ migrated = localStorage.getItem(MIGRATED_KEY)==="1"; }catch(e){}
+    const local = cleanResults(pendingLocal);
+    const missing = Object.keys(local).some(k=>remote[k]!==local[k]);
+    if(canEdit && !migrated && missing){
+      results = {...remote, ...local};
+      try{ localStorage.setItem(MIGRATED_KEY,"1"); }catch(e){}
       save(); render(); schedulePush(0); return;
     }
     results = remote; save(); setSync("ok"); render();
   }catch(e){ setSync("error"); }
 }
 
-function schedulePush(delay=500){
+function schedulePush(delay=400){
   dirty = true; setSync("saving");
   clearTimeout(pushTimer); pushTimer = setTimeout(push, delay);
 }
 async function push(){
-  if(pushing){ schedulePush(500); return; }
+  if(pushing){ schedulePush(400); return; }
   pushing = true; dirty = false;
   try{
-    const r = await fetch(STORE_URL,{method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({name:STORE_NAME,data:{results,updatedAt:Date.now()}})});
-    if(!r.ok) throw new Error(r.status);
-    try{ localStorage.setItem(KEY+"-migrated","1"); }catch(e){}
+    const j = await post({pin, results, labels:labelsFor(results)});
+    if(!j.ok && j.error==="pin"){ lockEdit(); toast("Mã PIN không còn đúng – đã khóa chỉnh sửa"); pushing=false; pull(); return; }
+    if(!j.ok) throw new Error("save");
+    try{ localStorage.setItem(MIGRATED_KEY,"1"); }catch(e){}
     if(!dirty) setSync("ok");
   }catch(e){ dirty = true; setSync("error"); clearTimeout(pushTimer); pushTimer=setTimeout(push, 8000); }
   finally{ pushing = false; }
 }
 
-async function sha256(s){
-  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
-}
+function lockEdit(){ canEdit=false; pin=""; try{ localStorage.removeItem(PIN_KEY); }catch(e){} renderEditBtn(); }
 
 // ===== Trạng thái lọc =====
 const state = { round:"all", group:"all", q:"", pending:false, view:"lich" };
@@ -397,15 +409,17 @@ function renderEditBtn(){
   renderSync();
 }
 $("#btnEdit").addEventListener("click",()=>{
-  if(canEdit){ canEdit=false; try{ localStorage.removeItem(EDITOR_KEY); }catch(e){} renderEditBtn(); toast("Đã khóa chỉnh sửa"); return; }
+  if(canEdit){ lockEdit(); toast("Đã khóa chỉnh sửa"); return; }
   $("#pin").value=""; $("#pinModal").classList.add("show"); setTimeout(()=>$("#pin").focus(),50);
 });
 $("#pinNo").addEventListener("click",()=>$("#pinModal").classList.remove("show"));
 $("#pinForm").addEventListener("submit",async e=>{
   e.preventDefault();
-  const ok = (await sha256($("#pin").value.trim()))===PIN_HASH;
+  const val=$("#pin").value.trim();
+  let ok=false;
+  try{ ok = (await post({pin:val, check:true})).ok; }catch(e){ toast("Không kết nối được kho dữ liệu, thử lại sau"); return; }
   if(!ok){ toast("Mã PIN không đúng"); return; }
-  canEdit=true; try{ localStorage.setItem(EDITOR_KEY,"1"); }catch(e){}
+  pin=val; canEdit=true; try{ localStorage.setItem(PIN_KEY,val); }catch(e){}
   $("#pinModal").classList.remove("show"); renderEditBtn(); toast("Đã mở chế độ chỉnh sửa");
   pull();
 });
