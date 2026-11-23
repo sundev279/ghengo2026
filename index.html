@@ -196,6 +196,8 @@ try { pin = localStorage.getItem(PIN_KEY) || ""; } catch(e){}
 let canEdit = !!pin;
 let sync = { state:"loading", at:null };
 let pushTimer = null, pushing = false, dirty = false;
+let pending = {};        // thay đổi chưa lưu: {lượt: số đội | null}
+let pendingReplace = false; // xóa toàn bộ / dán kết quả: ghi đè cả bảng
 
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(results)); }catch(e){} }
 
@@ -246,13 +248,20 @@ async function pull(){
     const local = cleanResults(pendingLocal);
     const missing = Object.keys(local).some(k=>remote[k]!==local[k]);
     if(canEdit && !migrated && missing){
-      results = {...remote, ...local};
+      for(const k of Object.keys(local)) if(remote[k]!==local[k]) pending[k]=local[k];
       try{ localStorage.setItem(MIGRATED_KEY,"1"); }catch(e){}
-      save(); render(); schedulePush(0); return;
+      results = applyPending(remote); save(); render(); schedulePush(0); return;
     }
-    results = remote; save(); setSync("ok"); render();
+    results = applyPending(remote); save(); setSync("ok"); render();
   }catch(e){ setSync("error"); }
 }
+
+function applyPending(base){
+  const r={...base};
+  for(const [k,v] of Object.entries(pending)){ if(v===null) delete r[k]; else r[k]=v; }
+  return r;
+}
+function markChange(m, v){ pending[m] = (v===undefined ? null : v); }
 
 function schedulePush(delay=400){
   dirty = true; setSync("saving");
@@ -262,11 +271,21 @@ async function push(){
   if(pushing){ schedulePush(400); return; }
   pushing = true; dirty = false;
   try{
-    const j = await post({pin, results, labels:labelsFor(results)});
+    const sent = {...pending}, replace = pendingReplace;
+    const setVals = {}; for(const [k,v] of Object.entries(sent)) if(v!==null) setVals[k]=v;
+    const body = replace
+      ? {pin, replace:true, results, labels:labelsFor(results)}
+      : {pin, changes:sent, labels:labelsFor(setVals)};
+    const j = await post(body);
     if(!j.ok && j.error==="pin"){ lockEdit(); toast("Mã PIN không còn đúng – đã khóa chỉnh sửa"); pushing=false; pull(); return; }
     if(!j.ok) throw new Error("save");
+    // bỏ các thay đổi đã lưu (nếu chưa bị sửa tiếp trong lúc chờ)
+    if(replace) pendingReplace=false;
+    for(const k of Object.keys(sent)) if(pending[k]===sent[k]) delete pending[k];
     try{ localStorage.setItem(MIGRATED_KEY,"1"); }catch(e){}
-    if(!dirty) setSync("ok");
+    if(j.results){ results = applyPending(cleanResults(j.results)); save(); render(); }
+    if(Object.keys(pending).length || pendingReplace) dirty = true;
+    if(!dirty) setSync("ok"); else { clearTimeout(pushTimer); pushTimer=setTimeout(push, 300); }
   }catch(e){ dirty = true; setSync("error"); clearTimeout(pushTimer); pushTimer=setTimeout(push, 8000); }
   finally{ pushing = false; }
 }
@@ -370,7 +389,7 @@ document.addEventListener("click",e=>{
   if(team){
     if(!canEdit){ toast("Đang ở chế độ xem – bấm “Mở chỉnh sửa” ở cuối trang để chọn đội thắng"); return; }
     const m=+team.dataset.m, id=+team.dataset.t;
-    if(results[m]===id) delete results[m]; else results[m]=id;
+    if(results[m]===id){ delete results[m]; markChange(m,null); } else { results[m]=id; markChange(m,id); }
     save(); render(); schedulePush(); return; }
   const chip=e.target.closest(".chip"); if(chip){ state.round=chip.dataset.r; render(); return; }
   const tab=e.target.closest(".tab");
@@ -395,12 +414,12 @@ $("#btnImport").addEventListener("click",()=>{
   if(io.style.display!=="block"||!io.value.trim()){ io.style.display="block"; io.value=""; io.focus(); return; }
   try{ const obj=JSON.parse(io.value);
     const clean={}; for(const [k,v] of Object.entries(obj)){ const m=MATCHES.find(x=>x.no===+k); if(m&&(v===m.left||v===m.right)) clean[k]=v; }
-    results=clean; save(); render(); schedulePush(0); io.style.display="none"; toast(`Đã nhập ${Object.keys(clean).length} kết quả`);
+    results=clean; pending={}; pendingReplace=true; save(); render(); schedulePush(0); io.style.display="none"; toast(`Đã nhập ${Object.keys(clean).length} kết quả`);
   }catch(e){ toast("Chuỗi kết quả không hợp lệ"); }
 });
 $("#btnReset").addEventListener("click",()=>{ if(!canEdit){ toast("Cần mở chế độ chỉnh sửa trước"); return; } $("#modal").classList.add("show"); });
 $("#mNo").addEventListener("click",()=>$("#modal").classList.remove("show"));
-$("#mOk").addEventListener("click",()=>{ results={}; save(); render(); schedulePush(0); $("#modal").classList.remove("show"); toast("Đã xóa kết quả"); });
+$("#mOk").addEventListener("click",()=>{ results={}; pending={}; pendingReplace=true; save(); render(); schedulePush(0); $("#modal").classList.remove("show"); toast("Đã xóa kết quả"); });
 
 // ===== Chế độ chỉnh sửa =====
 function renderEditBtn(){
