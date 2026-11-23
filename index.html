@@ -32,7 +32,12 @@
   .chip.on{background:var(--maroon);border-color:var(--maroon);color:#fff}
   .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
   .row input,.row select{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink)}
-  .row input{flex:1;min-width:160px}
+  .row input[type=search]{flex:1;min-width:160px}
+  .chipsbar{display:flex;gap:6px;align-items:center}
+  .chipsbar .chips{flex:1;min-width:0}
+  .tchip{display:flex;align-items:center;gap:6px;flex:0 0 auto;margin-bottom:4px;white-space:nowrap}
+  .tchip input{width:15px;height:15px;margin:0;accent-color:var(--maroon)}
+  .tchip.on{background:var(--maroon);border-color:var(--maroon);color:#fff}
   .toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
   main{padding:12px 16px 40px}
   .round-title{display:flex;align-items:baseline;gap:10px;margin:18px 0 8px}
@@ -46,6 +51,54 @@
   .match.tent{border-style:dashed}
   .mno{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--gold-soft);border-radius:8px;color:var(--maroon);line-height:1.1}
   .mno b{font-size:18px}.mno small{font-size:11px;font-weight:700}
+  .mno .lbl,.mno em{display:none}
+  .match{scroll-margin-top:150px}
+  .syncrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+  .syncrow .sync{margin-top:0}
+  .pill{border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.12);color:#fff;font:inherit;font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:99px;cursor:pointer;white-space:nowrap}
+  .pill.on{background:var(--gold);border-color:var(--gold);color:var(--maroon)}
+  .fabs{position:fixed;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:8}
+  .fab{border:0;border-radius:99px;background:var(--maroon);color:#fff;font:inherit;font-size:13px;font-weight:700;padding:11px 14px;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer}
+  .fab.alt{background:#fff;color:var(--maroon);border:1px solid var(--line)}
+  .fab[hidden]{display:none}
+  @media (max-width:600px){
+    body{font-size:15px}
+    header{padding:14px 12px 12px}
+    header h1{font-size:18px}
+    header .sub{font-size:12px}
+    .progress{margin-top:10px;font-size:12px}
+    .tabs{margin-top:10px}
+    .tab{padding:10px 6px;font-size:14px}
+    .toolbar{padding:8px 10px}
+    .chip{padding:8px 14px;font-size:14px}
+    .row{gap:6px;margin-top:6px}
+    .row{flex-wrap:nowrap}
+    .row input[type=search]{flex:1 1 auto;min-width:0;font-size:16px;padding:9px 12px}
+    .row select{flex:0 0 118px;font-size:16px;padding:8px 6px}
+    .toolbar{box-shadow:0 2px 8px rgba(60,20,10,.06)}
+    .toggle{font-size:13px;padding:0 2px}
+    .toolbar .hint{display:none}
+    main{padding:6px 10px 110px}
+    .round-title{flex-direction:column;gap:2px;margin:16px 2px 8px}
+    .round-title h2{font-size:16px}
+    .grid{gap:10px}
+    .match{grid-template-columns:1fr;padding:8px;gap:6px;scroll-margin-top:118px}
+    .syncrow .sync{font-size:12px}
+    .mno{flex-direction:row;justify-content:flex-start;align-items:baseline;gap:8px;background:none;padding:0 2px}
+    .mno b{font-size:14px}
+    .mno .lbl{display:inline;font-weight:600}
+    .mno small{font-size:12px;color:var(--muted)}
+    .mno em{display:inline;margin-left:auto;font-style:normal;font-size:11.5px;font-weight:700;color:var(--win)}
+    .pair{gap:4px}
+    .vs{font-size:10px}
+    .team{min-height:70px;padding:10px 8px 10px 33px}
+    .team .seed{top:10px;left:7px;width:20px;height:20px}
+    .team .nm{font-size:15px}
+    .team .meta{font-size:12px}
+    .groups{grid-template-columns:1fr}
+    .actions .btn{flex:1 1 45%;padding:12px 10px;font-size:14px}
+    .modal .box input{font-size:16px}
+  }
   .pair{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:stretch}
   .vs{align-self:center;font-size:11px;color:var(--muted);font-weight:700}
   .team{position:relative;border:2px solid transparent;background:#faf6ef;border-radius:10px;padding:8px 8px 8px 30px;text-align:left;font:inherit;cursor:pointer;color:var(--ink);min-height:58px;transition:background .15s,border-color .15s,opacity .15s}
@@ -100,7 +153,7 @@
     <h1>Lễ hội Óoc Om Bóc – Đua ghe ngo TP. Cần Thơ 2026</h1>
     <div class="sub">Lịch thi đấu ngày 23/11/2026 · 16 bảng (A–P) · 108 lượt đua</div>
     <div class="progress"><div class="bar"><i id="pbar"></i></div><span id="ptext">0/108</span></div>
-    <div class="sync" id="sync">⏳ Đang tải kết quả dùng chung…</div>
+    <div class="syncrow"><div class="sync" id="sync">⏳ Đang tải kết quả dùng chung…</div><button class="pill" id="btnEditTop" type="button">Mở chỉnh sửa</button></div>
     <div class="tabs">
       <button class="tab on" data-view="lich">Lịch thi đấu</button>
       <button class="tab" data-view="bxh">Bảng xếp hạng</button>
@@ -110,11 +163,10 @@
 
 <div class="toolbar">
   <div class="wrap">
-    <div class="chips" id="roundChips"></div>
+    <div class="chipsbar"><div class="chips" id="roundChips"></div><label class="chip tchip" id="pendingChip"><input type="checkbox" id="pending"> Chưa có KQ</label></div>
     <div class="row">
       <input id="q" type="search" placeholder="Tìm đội, mã địa phương hoặc số (vd: Sro Lôn, MH, 12)">
       <select id="grp"></select>
-      <label class="toggle"><input type="checkbox" id="pending"> Chỉ trận chưa có kết quả</label>
     </div>
     <div class="hint">Ở chế độ chỉnh sửa: bấm vào đội để đánh dấu thắng, bấm lại để bỏ chọn · kết quả tự đồng bộ cho mọi người xem</div>
   </div>
@@ -135,6 +187,7 @@
 
 <div class="modal" id="modal"><div class="box"><p>Xóa toàn bộ kết quả đã đánh dấu?</p><div class="row"><button class="btn danger" id="mOk">Xóa</button><button class="btn" id="mNo">Hủy</button></div></div></div>
 <div class="modal" id="pinModal"><div class="box"><form id="pinForm"><p>Nhập mã PIN để chọn đội thắng</p><input id="pin" type="password" inputmode="numeric" autocomplete="off" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:12px"><div class="row"><button class="btn primary" type="submit">Mở</button><button class="btn" type="button" id="pinNo">Hủy</button></div></form></div></div>
+<div class="fabs"><button class="fab" id="fabNext" type="button">⏭ Lượt chưa có KQ</button><button class="fab alt" id="fabTop" type="button" hidden>↑ Lên đầu</button></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -208,11 +261,11 @@ function renderSync(){
   const map = {
     loading:["⏳","Đang tải kết quả dùng chung…"],
     saving:["⏳","Đang lưu…"],
-    ok:["🟢", `Đã đồng bộ lúc ${t}`],
-    error:["🔴","Mất kết nối kho dữ liệu – kết quả vẫn lưu trên máy này, sẽ thử lại"]
+    ok:["🟢", `Đồng bộ lúc ${t}`],
+    error:["🔴","Mất kết nối – đang thử lại, kết quả vẫn lưu trên máy"]
   };
   const [ic,tx]=map[sync.state]||map.loading;
-  el.innerHTML = `${ic} ${tx} · <b>${canEdit?"Chế độ chỉnh sửa":"Chế độ xem"}</b>`;
+  el.innerHTML = `${ic} ${tx}`;
 }
 
 function cleanResults(obj){
@@ -348,7 +401,7 @@ function renderLich(){
     if(ROUND_INFO[r].tent) html+=`<div class="notice">* Đợt 2 (lượt 33–64) chưa có ảnh lịch gốc. Cặp đấu được suy ra từ thể thức vòng tròn trong bảng (các cặp còn lại chưa gặp nhau); số lượt và vị trí đường bơi có thể khác lịch chính thức.</div>`;
     if(ROUND_INFO[r].lanes) html+=`<div class="hint" style="margin:-4px 0 8px">Bên trái: đường bơi số 2 · Bên phải: đường bơi số 1 (khán đài A)</div>`;
     html+=`<div class="grid">`+ms.map(m=>`<div class="match ${results[m.no]?"done":""} ${m.tent?"tent":""}">
-      <div class="mno"><b>${m.no}</b><small>Bảng ${m.group}</small></div>
+      <div class="mno"><b><span class="lbl">Lượt </span>${m.no}</b><small>Bảng ${m.group}</small>${results[m.no]?"<em>✓ Có kết quả</em>":""}</div>
       <div class="pair">${teamBtn(m,m.left,"L")}<span class="vs">VS</span>${teamBtn(m,m.right,"R")}</div>
     </div>`).join("")+`</div>`;
   }
@@ -401,7 +454,7 @@ document.addEventListener("click",e=>{
 });
 $("#q").addEventListener("input",e=>{ state.q=e.target.value; render(); });
 $("#grp").addEventListener("change",e=>{ state.group=e.target.value; render(); });
-$("#pending").addEventListener("change",e=>{ state.pending=e.target.checked; render(); });
+$("#pending").addEventListener("change",e=>{ state.pending=e.target.checked; $("#pendingChip").classList.toggle("on",state.pending); render(); });
 
 $("#btnExport").addEventListener("click",async()=>{
   const s=JSON.stringify(results);
@@ -424,6 +477,8 @@ $("#mOk").addEventListener("click",()=>{ results={}; pending={}; pendingReplace=
 // ===== Chế độ chỉnh sửa =====
 function renderEditBtn(){
   $("#btnEdit").textContent = canEdit ? "Khóa chỉnh sửa" : "Mở chỉnh sửa";
+  $("#btnEditTop").textContent = canEdit ? "🔓 Đang sửa" : "🔒 Mở chỉnh sửa";
+  $("#btnEditTop").classList.toggle("on", canEdit);
   document.body.classList.toggle("ro", !canEdit);
   renderSync();
 }
@@ -431,6 +486,20 @@ $("#btnEdit").addEventListener("click",()=>{
   if(canEdit){ lockEdit(); toast("Đã khóa chỉnh sửa"); return; }
   $("#pin").value=""; $("#pinModal").classList.add("show"); setTimeout(()=>$("#pin").focus(),50);
 });
+$("#btnEditTop").addEventListener("click",()=>$("#btnEdit").click());
+$("#fabTop").addEventListener("click",()=>window.scrollTo({top:0,behavior:"smooth"}));
+$("#fabNext").addEventListener("click",()=>{
+  if(state.view!=="lich") document.querySelector('.tab[data-view="lich"]').click();
+  let el=document.querySelector("#v-lich .match:not(.done)");
+  if(!el && (state.round!=="all"||state.group!=="all"||state.q||state.pending)){
+    state.round="all"; state.group="all"; state.q=""; state.pending=false; $("#q").value=""; $("#pending").checked=false; $("#pendingChip").classList.remove("on"); render();
+    el=document.querySelector("#v-lich .match:not(.done)");
+  }
+  if(!el){ toast("Tất cả các lượt đã có kết quả"); return; }
+  el.scrollIntoView({behavior:"smooth",block:"start"});
+  el.animate([{boxShadow:"0 0 0 4px rgba(217,165,33,.9)"},{boxShadow:"0 0 0 0 rgba(217,165,33,0)"}],{duration:1400});
+});
+window.addEventListener("scroll",()=>{ $("#fabTop").hidden = window.scrollY < 900; },{passive:true});
 $("#pinNo").addEventListener("click",()=>$("#pinModal").classList.remove("show"));
 $("#pinForm").addEventListener("submit",async e=>{
   e.preventDefault();
